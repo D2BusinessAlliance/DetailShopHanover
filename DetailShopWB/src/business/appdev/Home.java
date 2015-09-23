@@ -43,6 +43,8 @@ public class Home {
 	private ArrayList<Photo> tempPhotos;
 	//private Photo tempPhoto;
 	
+	// Added Git Repository
+	
 	// Connection Variables
 	int PORT = 21;
 	String HOST = "ftp.thedetailshophanover.com";
