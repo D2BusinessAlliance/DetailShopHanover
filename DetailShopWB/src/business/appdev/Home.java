@@ -3,6 +3,7 @@ package business.appdev;
 // Import other projects
 import business.modelclasses.*;
 import business.database.*;
+import business.appdev.DataHandling;
 
 import java.awt.Color;
 import java.awt.Dimension;
@@ -16,11 +17,14 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTabbedPane;
 import javax.swing.SwingConstants;
 import javax.swing.WindowConstants;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 
 import persistence.DatabaseProvider;
 
@@ -33,19 +37,27 @@ import java.util.ArrayList;
 import javax.swing.JScrollPane;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.JFileChooser;
+import javax.swing.event.ChangeEvent;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import java.io.*;
 
+import javax.swing.JToolBar;
+
+import java.awt.CardLayout;
+
+import org.eclipse.wb.swing.FocusTraversalOnArray;
+
+import java.awt.Component;
+
 
 public class Home {
+	
 	//	Globals for temp photos
-	private ArrayList<Photo> tempPhotos;
-	//private Photo tempPhoto;
+	private ArrayList<Photo> tempPhotos = new ArrayList<Photo>();
+
 	
-	// Added Git Repository
-	
-	// Connection Variables
+	// FTP Connection Variables
 	int PORT = 21;
 	String HOST = "ftp.thedetailshophanover.com";
 	String USERNAME = "detailshophan";
@@ -139,6 +151,23 @@ public class Home {
 	private int buttonXSize = 40;
 	private int startingY = 25;
 	
+	/**
+	 * 
+	 * Temp Variables to store information on Initial Start
+	 * 
+	 */
+	ArrayList<Car> tempCars = new ArrayList<Car>();
+	ArrayList<Photo> tempPhotos1 = new ArrayList<Photo>();
+	ArrayList<Feature> tempFeatures = new ArrayList<Feature>();
+	
+	/** Variables to store data for addPanel car */
+	Car addCar = new Car();
+	ArrayList<String> addFeatures = new ArrayList<String>();
+	ArrayList<Photo> addPhotos = new ArrayList<Photo>();
+	
+	// DataHandling object
+	DataHandling data = new DataHandling();
+	
 	// Frame close
 	private int frameValue = 0;
 
@@ -166,10 +195,30 @@ public class Home {
 	 * @throws FTPException 
 	 */
 	public Home() throws SQLException, IOException, FTPException {
-		// Connect to the Database right away
-		DatabaseProvider.setInstance(new GoDaddyDatabase());;
+		
 		initialize();
-			
+		
+		/* Retrieve Cars in Database @ Start
+		 * of application running */
+		cars = data.retrieveCars();
+		/* Use for loop to retrieve all features 
+		 * and photos from all cars */
+		for(int i = 0; i < cars.size();i++){
+			int carID = cars.get(i).getCarID();
+			ArrayList<String> loadFeatures = new ArrayList<String>();
+			loadFeatures = data.retrieveFeatures(carID);
+			for(int j = 0; j < loadFeatures.size(); j++){
+				tempFeatures.add(new Feature(carID, loadFeatures.get(j)));
+			}
+			ArrayList<Photo> loadPhotos = new ArrayList<Photo>();
+			loadPhotos = data.retrievePhotos(carID);
+			for(int j = 0; j < loadPhotos.size(); j++){
+				tempPhotos1.add(loadPhotos.get(j));
+			}
+		}
+		System.out.println("There are a total of " + tempFeatures.size() + " features");
+		System.out.println("There are a total of " + tempPhotos1.size() + " photos");
+		
 		// Set frame details
 		frame.setTitle( "The Detail Shop of Hanover, LLC. Inventory" );
 		frame.setSize( 800, 600 );
@@ -184,50 +233,26 @@ public class Home {
 		// Create addPanel and add to tabbedPane
 		addPanel = new JPanel(null);
 		tabbedPane.addTab("Add", null, addPanel, null);
-	
-		// Create edit and remove Panels
-		editPanel = new JPanel(null);
-		removePanel = new JPanel(null);
 		
-		// Create edit and remove scrollPanes - add to tabbedPane
+		// Create edit panel and ScrollPane
+		editPanel = new JPanel(null);
 		editScrollPane = new JScrollPane(editPanel);
 		tabbedPane.addTab("Edit", null, editScrollPane, null);
 		editScrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
 		
-		// remove scrollPane
+		/* Create Remove Panel & ScrollPane */
+		removePanel = new JPanel(null);
 		removeScrollPane = new JScrollPane(removePanel);
 		tabbedPane.addTab("Remove", null, removeScrollPane, null);
 		removeScrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
 		
+		/* Paint All 3 Panels (Add, Edit, Remove) */
 		paintAddPanel();
-		paintEditPanel();
-		paintRemovePanel();
+		paintRemovePanel(cars);
+		paintEditPanel(cars);
 		
-		/*tabbedPane.addChangeListener(new ChangeListener(){
-			public void stateChanged(ChangeEvent e){
-				try {
-					processTabChange();
-				} catch (SQLException | IOException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-			}
- 		});	*/
 	}
 	
-	public void processTabChange() throws SQLException, IOException{
-		int selectedTab = tabbedPane.getSelectedIndex();
-		frame.removeAll();
-		frame.validate();
-		if(selectedTab == 0){
-			paintAddPanel();
-		} else if (selectedTab == 1){
-			paintEditPanel();
-		} else {
-			paintRemovePanel();
-		}
-	}
-
 	/**
 	 * Initialize the contents of the frame.
 	 */
@@ -237,12 +262,15 @@ public class Home {
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 	}
 
-	// Creates addPanel, completely blank
+	/**
+	 * 
+	 * Paints Add Panel
+	 * TODO: Need to Finish Button Handling
+	 * @throws SQLException
+	 * @throws IOException
+	 */
 	public void paintAddPanel() throws SQLException, IOException {
-		tempPhotos = new ArrayList<Photo>();
-		
-		// Set the photoID
-		addPanelPhotoID = DatabaseProvider.getInstance().returnAllPhotos().size();
+		addPanel.removeAll();
 		
 		// Create + Setup ScrollPane and JPanel to handle images
 		imagePanel = new JPanel(null);
@@ -328,6 +356,7 @@ public class Home {
 			@Override
 			public void mouseClicked(MouseEvent e) {
 				try {
+					
 					addPanelSubmitButton();
 				} catch (IOException | FTPException e1) {
 					// TODO Auto-generated catch block
@@ -341,7 +370,139 @@ public class Home {
 	
 	}
 	
-	// Handles when user clicks Upload Button
+	/**
+	 * 
+	 * TODO: Need to Finish Handling Removal of Cars
+	 * @param cars
+	 * @throws SQLException
+	 * @throws IOException
+	 */
+	public void paintRemovePanel(ArrayList<Car> cars) throws SQLException, IOException {
+		removePanel.removeAll();
+		// Create ArrayList of cars and JButton and JLabel for displaying
+		removeButton = new JButton[cars.size()];
+		carNames = new JLabel[cars.size()];
+		
+		if(cars.size() > 0){		
+			// Loop to add car names and buttons to removePanel
+			for(int i = 0; i < cars.size(); i++){
+				// Add removeButton for car
+				removeButton[i] = new JButton("X");
+				removeButton[i].setBounds(buttonX, startingY+(75*i), buttonXSize, buttonXSize);
+				removePanel.add(removeButton[i]);
+				// Add carName for car
+				carNames[i] = new JLabel(cars.get(i).getCarYear() +" "+ cars.get(i).getCarMake() +" "+ cars.get(i).getCarModel());
+				carNames[i].setBounds(labelX, startingY+(75*i), 400, 40);
+				removePanel.add(carNames[i]);
+				removePanel.setPreferredSize(new Dimension (700, startingY+(75*i)+50));
+				removeButton[i].addMouseListener(new MouseAdapter() {
+					@Override
+					public void mouseClicked(MouseEvent e) {
+					// Retrieves the Index of the X clicked, subtract 25 for initial starting point, 
+					// and Divide by 75 for spacing between cars
+					// SHOULD BE CORRECT, NEED MORE TESTING
+					int carIndex = ((e.getComponent().getY()-25)/75);
+					System.out.println("X Clicked on Car " + carIndex + " which has an ID of " + cars.get(carIndex).getCarID());
+					// 0 for ok, 2 for cancel
+					delete = JOptionPane.showConfirmDialog(removePanel, "You are about to remove this car from the database, "
+							+ "are you sure you want to continue? ",
+							"Remove Car From Database", JOptionPane.OK_CANCEL_OPTION);
+						// Remove the car from the database
+						if(delete==0){
+							String pathName = cars.get(carIndex).getCarYear()+cars.get(carIndex).getCarMake()+cars.get(carIndex).getCarModel();
+							pathName = pathName.replaceAll("\\s", "");
+							System.out.println("Should be removing directory "+ pathName);
+							// Remove from server
+							FTPDeleteDirectory ftpDelete = new FTPDeleteDirectory(HOST,PORT,USERNAME,PASSWORD, pathName);
+							try {
+								ftpDelete.removeCarDirectory();
+								System.out.println("Deleted directory from server!");
+							} catch (FTPException | IOException e2) {
+								// TODO Auto-generated catch block
+								e2.printStackTrace();
+							}
+							// Remove from the Database
+							int carID = cars.get(carIndex).getCarID();
+							try {
+								DatabaseProvider.getInstance().deleteCar(carID);
+								DatabaseProvider.getInstance().deletePhotos(carID);
+								DatabaseProvider.getInstance().deleteFeatures(carID);
+								cars.remove(carIndex);
+							} catch (SQLException | IOException e2) {
+								e2.printStackTrace();
+							}
+							/* Try to paint all of the panels??*/
+							try {
+								paintAddPanel();
+							} catch (SQLException | IOException e1) {
+								// TODO Auto-generated catch block
+								e1.printStackTrace();
+							}
+							try {
+								paintEditPanel(cars);
+							} catch (SQLException | IOException e1) {
+								// TODO Auto-generated catch block
+								e1.printStackTrace();
+							}
+							try {
+								paintRemovePanel(cars);
+							} catch (SQLException | IOException e1) {
+								// TODO Auto-generated catch block
+								e1.printStackTrace();
+							}
+						}
+					}
+				});
+			}
+		}
+	}	
+	
+	// Paints Edit Panel With Cars
+	public void paintEditPanel(ArrayList<Car> cars) throws SQLException, IOException {
+		editPanel.removeAll();
+		/* Create Buttons & Labels for Cars*/
+		editButton = new JButton[cars.size()];
+		carNames = new JLabel[cars.size()];
+		if(cars.size() > 0){		
+			// Loop to add car names and buttons to removePanel
+			for(int i = 0; i < cars.size(); i++){
+				// Add removeButton for car
+				editButton[i] = new JButton("EDIT");
+				editButton[i].setBounds(buttonX, startingY+(75*i), 50, buttonXSize);
+				editPanel.add(editButton[i]);
+				// Add carName for car
+				carNames[i] = new JLabel(cars.get(i).getCarYear() +" "+ cars.get(i).getCarMake() +" "+ cars.get(i).getCarModel());
+				carNames[i].setBounds(labelX, startingY+(75*i), 400, 40);
+				editPanel.add(carNames[i]);
+				editPanel.setPreferredSize(new Dimension (700, startingY+(75*i)+50));
+				editButton[i].addMouseListener(new MouseAdapter() {
+					@Override
+					public void mouseClicked(MouseEvent e) {
+					// Retrieves the Index of the X clicked, subtract 25 for initial starting point, 
+					// and Divide by 75 for spacing between cars
+					// SHOULD BE CORRECT, NEED MORE TESTING
+					int carIndex = ((e.getComponent().getY()-25)/75);
+					System.out.println("EDIT Clicked on Car " + carIndex);
+					System.out.println("The ID of this car is " + cars.get(carIndex).getCarID());
+						try {
+							openEditFrame(carIndex);
+						} catch (SQLException | IOException | FTPException e1) {
+							e1.printStackTrace();
+						} 
+					
+					}
+				});
+			}
+		}
+	}
+	
+	
+	/**
+	 * Handles when user clicks Upload Button
+	 * TODO: 
+	 * @throws SQLException
+	 * @throws IOException
+	 */
 	public void addPanelUploadButton() throws SQLException, IOException {
 		
 		
@@ -361,6 +522,7 @@ public class Home {
 		// If user selects allowable file
 		if(status== JFileChooser.APPROVE_OPTION){
 			f = fileChooser.getSelectedFile();	
+			System.out.println(f.getAbsolutePath());
 			// Create InputStream
 			try {
 				// Create temp photo + Add to ArrayList
@@ -435,15 +597,17 @@ public class Home {
 		carPrice = Integer.parseInt(priceField.getText());
 		carMileage = Integer.parseInt(mileageField.getText());
 		String needsParsed = featuresArea.getText();
-		System.out.println("Features area contains: " + needsParsed);
-		// Create directory string
+		
+		// Create directory string & remove all spaces
 		String photoDirectoryName = carYear+carMake+carModel;
+		photoDirectoryName = photoDirectoryName.replaceAll("\\s", "");
 		
 		// Create objects to be inserted into database
-		submitCar = new Car(newCarID, carYear, carMake, carModel, carPrice, carMileage);
+		submitCar = new Car(0, carYear, carMake, carModel, carPrice, carMileage);
+		/* Returns the ID of the car that was just inserted */
 		int carDBID = DatabaseProvider.getInstance().addCar(submitCar);
 		
-		// TODO: Get features, parse, add to database
+		/* Adds features to Database */
 		ArrayList<String> features = new ArrayList<String>();
 		features = returnFeatures(needsParsed);
 		for(int i = 0; i < features.size(); i++){
@@ -466,148 +630,34 @@ public class Home {
 			// Set carID after ID has been returned.  Set photopath so it can be found on the server
 			// Upload Photo
 			tempPhotos.get(i).setCarID(carDBID);
-			String filePath = carYear+carMake+carModel+"/"+f.getName();
+			String filePath = photoDirectoryName + "/" + f.getName();
+			System.out.println("The filepath being placed into the database is: " + filePath);
 			tempPhotos.get(i).setFilePath(filePath);
 			DatabaseProvider.getInstance().addPhoto(tempPhotos.get(i));
 		}
-		
-		// TODO: NEED TO CLEAR OUT THE PANEL, RESET ALL VARIABLES FOR NEW UPLOAD
-		/*
-		yearField.setText(null);
-		modelField.setText(null);
-		makeField.setText(null);
-		priceField.setText(null);
-		mileageField.setText(null);
-		featuresArea.setText(null);
-		submitCar = null;
-		*/
-		//carYear = "";
-		//carModel= ;
-		//carMake = makeField.getText();
-		//carPrice = Integer.parseInt(priceField.getText());
-		//carMileage 
-		// Clears out photos
+		submitCar.setCarID(carDBID);
+		cars.add(submitCar);
 		addPanel.removeAll();
 		features.clear();
 		tempPhotos.clear();
 		System.out.println("Temp photos: "+tempPhotos.size());
 		paintAddPanel();
-		paintEditPanel();
-		paintRemovePanel();
+		paintEditPanel(cars);
+		paintRemovePanel(cars);
 	}
 		
-	public void paintRemovePanel() throws SQLException, IOException{
-		removePanel.removeAll();
-		removePanel.validate();
-		// Create ArrayList of cars and JButton and JLabel for displaying
-		cars = DatabaseProvider.getInstance().returnAllCars();
-		removeButton = new JButton[cars.size()];
-		carNames = new JLabel[cars.size()];
-		
-		if(cars.size() > 0){		
-			// Loop to add car names and buttons to removePanel
-			for(int i = 0; i < cars.size(); i++){
-				// Add removeButton for car
-				removeButton[i] = new JButton("X");
-				removeButton[i].setBounds(buttonX, startingY+(75*i), buttonXSize, buttonXSize);
-				removePanel.add(removeButton[i]);
-				// Add carName for car
-				carNames[i] = new JLabel(cars.get(i).getCarYear() +" "+ cars.get(i).getCarMake() +" "+ cars.get(i).getCarModel());
-				carNames[i].setBounds(labelX, startingY+(75*i), 400, 40);
-				removePanel.add(carNames[i]);
-				removePanel.setPreferredSize(new Dimension (700, startingY+(75*i)+50));
-				removeButton[i].addMouseListener(new MouseAdapter() {
-					@Override
-					public void mouseClicked(MouseEvent e) {
-					// Retrieves the Index of the X clicked, subtract 25 for initial starting point, 
-					// and Divide by 75 for spacing between cars
-					// SHOULD BE CORRECT, NEED MORE TESTING
-					int carIndex = ((e.getComponent().getY()-25)/75);
-					System.out.println("X Clicked on Car " + carIndex + " which has an ID of " + cars.get(carIndex).getCarID());
-					// 0 for ok, 2 for cancel
-					delete = JOptionPane.showConfirmDialog(removePanel, "You are about to remove this car from the database, "
-							+ "are you sure you want to continue? ",
-							"Remove Car From Database", JOptionPane.OK_CANCEL_OPTION);
-						// Remove the car from the database
-						if(delete==0){
-							String pathName = cars.get(carIndex).getCarYear()+cars.get(carIndex).getCarMake()+cars.get(carIndex).getCarModel();
-							System.out.println("Should be removing directory "+pathName);
-							// Remove from server
-							FTPDeleteDirectory ftpDelete = new FTPDeleteDirectory(HOST,PORT,USERNAME,PASSWORD, pathName);
-							try {
-								ftpDelete.removeCarDirectory();
-								System.out.println("Deleted directory from server!");
-							} catch (FTPException | IOException e2) {
-								// TODO Auto-generated catch block
-								e2.printStackTrace();
-							}
-							// Remove from the Database
-							int carID = cars.get(carIndex).getCarID();
-							try {
-								DatabaseProvider.getInstance().deleteCar(carID);
-								DatabaseProvider.getInstance().deletePhotos(carID);
-								DatabaseProvider.getInstance().deleteFeatures(carID);
-							} catch (SQLException | IOException e2) {
-								e2.printStackTrace();
-							}
-							removePanel.removeAll();
-							removePanel.validate();
-							try {
-								paintEditPanel();
-								paintRemovePanel();
-							} catch (SQLException | IOException e1) {
-								e1.printStackTrace();
-							}
-						}
-					}
-				});
-			}
-		}
-	}	
 	
-	public void paintEditPanel() throws SQLException, IOException {
-		editPanel.removeAll();
-		editPanel.validate();
-		
-		// Create ArrayList of cars and JButton and JLabel for displaying
-		cars = DatabaseProvider.getInstance().returnAllCars();
-		System.out.println("There are a total of " + cars.size() + " cars");
-		editButton = new JButton[cars.size()];
-		carNames = new JLabel[cars.size()];
-		if(cars.size() > 0){		
-			// Loop to add car names and buttons to removePanel
-			for(int i = 0; i < cars.size(); i++){
-				// Add removeButton for car
-				editButton[i] = new JButton("EDIT");
-				editButton[i].setBounds(buttonX, startingY+(75*i), 50, buttonXSize);
-				editPanel.add(editButton[i]);
-				// Add carName for car
-				carNames[i] = new JLabel(cars.get(i).getCarYear() +" "+ cars.get(i).getCarMake() +" "+ cars.get(i).getCarModel());
-				carNames[i].setBounds(labelX, startingY+(75*i), 400, 40);
-				editPanel.add(carNames[i]);
-				editPanel.setPreferredSize(new Dimension (700, startingY+(75*i)+50));
-				editButton[i].addMouseListener(new MouseAdapter() {
-					@Override
-					public void mouseClicked(MouseEvent e) {
-					// Retrieves the Index of the X clicked, subtract 25 for initial starting point, 
-					// and Divide by 75 for spacing between cars
-					// SHOULD BE CORRECT, NEED MORE TESTING
-					int carIndex = ((e.getComponent().getY()-25)/75);
-					System.out.println("EDIT Clicked on Car " + carIndex);
-					System.out.println("The ID of this car is " + cars.get(carIndex).getCarID());
-						try {
-							openEditFrame(carIndex);
-						} catch (SQLException | IOException | FTPException e1) {
-							e1.printStackTrace();
-						} 
-					
-					}
-				});
-			}
-		}
-	}
-		
+	
+	/**
+	 *
+	 * TODO: Add Progress Bar for Loading
+	 * @param carIndex - carIndex to retrieve information from Database
+	 * @throws SQLException
+	 * @throws IOException
+	 * @throws FTPException
+	 */
 	public void openEditFrame(int carIndex) throws SQLException, IOException, FTPException {
+		
 		// Frame basics
 		editFrame = new JFrame("Edit Car");
 		editFrame.setSize( 800, 600 );
@@ -624,16 +674,14 @@ public class Home {
 		// Add everything to edit Frame
 		editFrame.getContentPane().add(editFramePanel);
 		
+		
 		// Preparing Objects for EditPanel
 		editCar = new Car(cars.get(carIndex).getCarID(), cars.get(carIndex).getCarYear(), cars.get(carIndex).getCarMake(), 
 				cars.get(carIndex).getCarModel(), cars.get(carIndex).getPrice(), cars.get(carIndex).getMileage());
 		editPanelPhotos = DatabaseProvider.getInstance().returnCarPhotos(editCar.getCarID());
 		editPanelFeatures = DatabaseProvider.getInstance().returnCarFeatures(editCar.getCarID());
-		
 		// Add and Fill in all of the labels
-		paintEditFrame(editCar, editPanelPhotos, editPanelFeatures);
-						
-		
+		paintEditFrame(editCar, editPanelPhotos, editPanelFeatures);	
 	}
 	
 	public void paintEditFrame(Car editCar, ArrayList<Photo> photos, ArrayList<String> features) throws SQLException, IOException, FTPException{
@@ -691,17 +739,32 @@ public class Home {
 		featuresArea.setLineWrap(true);
 		featuresArea.setWrapStyleWord(true);
 		featuresArea.setBounds(10, 176, 400, 200);
-		editFramePanel.add(featuresArea);	
+		editFramePanel.add(featuresArea);
+		
+		/* Create car after painting*/
+		Car edited = new Car(editCar.getCarID(), Integer.parseInt(yearField.getText()), modelField.getText(), 
+				makeField.getText(), Integer.parseInt(priceField.getText()), Integer.parseInt(mileageField.getText()));
+		
+		
+		
+		
 		
 		// Save + Submit Button
 		submitChangesButton = new JButton("Save and Submit Changes");
 		submitChangesButton.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				// TODO NEED TO SUBMIT CHANGES TO DATABASE
+				carYear = Integer.parseInt(yearField.getText());
+				carModel= modelField.getText();
+				carMake = makeField.getText();
+				carPrice = Integer.parseInt(priceField.getText());
+				carMileage = Integer.parseInt(mileageField.getText());
+				String needsParsed = featuresArea.getText();
+				Car changedCar = new Car(editCar.getCarID(), carYear, carMake, carModel, carPrice, carMileage );
 				try {
 					// Reopens Edit Frame
-					editPanelSubmitButton();
+					editPanelSubmitButton(editCar, changedCar, reparsed, needsParsed);
+					//paintEditFrame(changedCar);
 				} catch (SQLException | IOException e1) {
 					e1.printStackTrace();
 				}
@@ -905,52 +968,68 @@ public class Home {
 	}
 
 	
-	public void editPanelSubmitButton() throws SQLException, IOException{
+	public void editPanelSubmitButton(Car oldCar, Car newCar, String oldFeatures, String newFeatures) throws SQLException, IOException{
 		// TODO Save changes to database
-		boolean changed = false;
-		if(makeField.getText()==editCar.getCarMake()){
+		/* Car Make */
+		System.out.println("Old car: " + oldCar.getCarID() + oldCar.getCarYear() + oldCar.getCarMake() + oldCar.getCarModel() + oldCar.getPrice());
+		System.out.println("New car: " + newCar.getCarID() + newCar.getCarYear() + newCar.getCarMake() + newCar.getCarModel() + newCar.getPrice());
+ 		if(oldCar.getCarMake().equals(newCar.getCarMake())){
+			// DO NOTHING
 		} else {
 			// Change car make
-			DatabaseProvider.getInstance().changeCarMake(editCar.getCarID(), makeField.getText());
-			changed=true;
+			DatabaseProvider.getInstance().changeCarMake(editCar.getCarID(), newCar.getCarMake());
 			System.out.println("Changed make");
 		}
-		if(modelField.getText()==editCar.getCarModel()){
-		
+ 		/* Car Year */
+ 		if(oldCar.getCarYear()==newCar.getCarYear()){
+			// DO NOTHING
 		} else {
-			// Change car model
-			DatabaseProvider.getInstance().changeCarModel(editCar.getCarID(), modelField.getText());
-			changed=true;
+			// Change car make
+			DatabaseProvider.getInstance().changeCarYear(editCar.getCarID(), newCar.getCarYear());
+			System.out.println("Changed Year");
+		}
+ 		/* Car Model */
+ 		if(oldCar.getCarModel().equals(newCar.getCarModel())){
+			// DO NOTHING
+		} else {
+			// Change car make
+			DatabaseProvider.getInstance().changeCarModel(editCar.getCarID(), newCar.getCarModel());
 			System.out.println("Changed model");
 		}
-		if(Integer.parseInt(yearField.getText())==editCar.getCarYear()){
+ 		/* Car Price */
+ 		if(oldCar.getPrice()==newCar.getPrice()){
+			// DO NOTHING
 		} else {
-			// Change car year
-			DatabaseProvider.getInstance().changeCarYear(editCar.getCarID(), Integer.parseInt(yearField.getText()));
-			changed=true;
-			System.out.println("Changed year");
-		}
-		if(Integer.parseInt(mileageField.getText())==editCar.getMileage()){
-		} else {
-			// Change car mileaege
-			DatabaseProvider.getInstance().changeCarMileage(editCar.getCarID(), Integer.parseInt(mileageField.getText()));
-			changed = true;
-			System.out.println("Changed mileage");
-		}
-		if(Integer.parseInt(priceField.getText())==editCar.getPrice()){
-		} else {
-			// Change car price
-			DatabaseProvider.getInstance().changeCarPrice(editCar.getCarID(), Integer.parseInt(priceField.getText()));
-			changed=true;
+			// Change car make
+			DatabaseProvider.getInstance().changeCarPrice(editCar.getCarID(), newCar.getPrice());
 			System.out.println("Changed price");
 		}
-		// TODO: FIGURE OUT THE BEST WAY TO COMPARE FEATURES
-		if(changed){
-			paintEditPanel();
-			paintRemovePanel();
+ 		/* Car Mileage */
+ 		if(oldCar.getMileage()==newCar.getMileage()){
+ 			// DO NOTHING
+		} else {
+			// Change car make
+			DatabaseProvider.getInstance().changeCarMileage(editCar.getCarID(), newCar.getMileage());
+			System.out.println("Changed mileage");
 		}
-		
-	
+ 		
+ 		// TODO: FEATURES!!!
+ 		/* If strings are equal, do nothing
+ 		 *  else, delete all features and add all features
+ 		 * */
+ 		if(oldFeatures.equals(newFeatures)){
+ 			System.out.println("Features are equal");
+ 		} else {
+ 			// Remove old features
+ 			DatabaseProvider.getInstance().deleteFeatures(editCar.getCarID());
+ 			// Convert new features to ArrayList
+ 			ArrayList<String> updateFeatures = new ArrayList<String>();
+ 			updateFeatures = returnFeatures(newFeatures);
+ 			// Add new Features
+ 			for(int i = 0; i < updateFeatures.size(); i++){
+ 				DatabaseProvider.getInstance().addFeatures(editCar.getCarID(), updateFeatures.get(i));
+ 			}
+		}
 	}
 		
 		/**
