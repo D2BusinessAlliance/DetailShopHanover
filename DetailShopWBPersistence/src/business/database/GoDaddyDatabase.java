@@ -28,9 +28,9 @@ public class GoDaddyDatabase implements IDatabase {
 	
 	}
 
-	private String DATABASE_PATH = "jdbc:mysql://160.153.44.70:3306/TheDetailShopHanover";
-	private String USERNAME = "DSHdbmanager";
-	private String PASSWORD = "Detai1$h0p";
+	private String DATABASE_PATH = "jdbc:mysql://www.thedetailshophanover.com:3306/TheDetailShopHanover";
+	private String USERNAME = "dshanover";
+	private String PASSWORD = "Da94eb8f$";
 	private static final int MAX_ATTEMPTS = 10;
 	
 		// Create connection, statement, resultSet
@@ -461,7 +461,7 @@ public class GoDaddyDatabase implements IDatabase {
 				PreparedStatement preparedStatement = null;
 				try{
 					// CORRECT PREPARESTATEMENT
-					preparedStatement = conn.prepareStatement("UPDATE CAR SET YEAR = ? WHERE CAR.CARID=?");
+					preparedStatement = conn.prepareStatement("UPDATE CAR SET YEAR=? WHERE CARID=?");
 					preparedStatement.setInt(1, newYear);
 					preparedStatement.setInt(2, carID);
 	 				preparedStatement.executeUpdate();
@@ -484,11 +484,10 @@ public class GoDaddyDatabase implements IDatabase {
 				try{
 					// CORRECT PREPARESTATEMENT
 					System.out.println("Creating prepared statement to update year");
-					preparedStatement = conn.prepareStatement("UPDATE CAR SET PRICE = ? WHERE CAR.CARID=?");
+					preparedStatement = conn.prepareStatement("UPDATE CAR SET PRICE=? WHERE CARID=?");
 					preparedStatement.setInt(1, newPrice);
 					preparedStatement.setInt(2, carID);
 	 				preparedStatement.executeUpdate();
-	 				System.out.println("success or nah");
 	 				
 				} finally {
 					DBUtil.closeQuietly(preparedStatement);
@@ -508,11 +507,10 @@ public class GoDaddyDatabase implements IDatabase {
 				try{
 					// CORRECT PREPARESTATEMENT
 					System.out.println("Creating prepared statement to update year");
-					preparedStatement = conn.prepareStatement("UPDATE CAR SET MILEAGE = ? WHERE CAR.CARID=?");
+					preparedStatement = conn.prepareStatement("UPDATE CAR SET MILEAGE=? WHERE CARID=?");
 					preparedStatement.setInt(1, newMileage);
 					preparedStatement.setInt(2, carID);
 	 				preparedStatement.executeUpdate();
-	 				System.out.println("success or nah");
 	 				
 				} finally {
 					DBUtil.closeQuietly(preparedStatement);
@@ -532,7 +530,7 @@ public class GoDaddyDatabase implements IDatabase {
 				try{
 					// CORRECT PREPARESTATEMENT
 					System.out.println("Creating prepared statement to update year");
-					preparedStatement = conn.prepareStatement("UPDATE CAR SET MODEL = ? WHERE CAR.CARID=?");
+					preparedStatement = conn.prepareStatement("UPDATE CAR SET MODEL=? WHERE CARID=?");
 					preparedStatement.setString(1, newModel);
 					preparedStatement.setInt(2, carID);
 	 				preparedStatement.executeUpdate();
@@ -556,7 +554,7 @@ public class GoDaddyDatabase implements IDatabase {
 				try{
 					// CORRECT PREPARESTATEMENT
 					System.out.println("Creating prepared statement to update year");
-					preparedStatement = conn.prepareStatement("UPDATE CAR SET MAKE = ? WHERE CAR.CARID=?");
+					preparedStatement = conn.prepareStatement("UPDATE CAR SET MAKE=? WHERE CARID=?");
 					preparedStatement.setString(1, newMake);
 					preparedStatement.setInt(2, carID);
 	 				preparedStatement.executeUpdate();
